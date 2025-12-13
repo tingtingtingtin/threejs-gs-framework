@@ -2,10 +2,8 @@ export interface SplatDataBuffers {
   positions: Float32Array;
   scales: Float32Array;
   rotations: Float32Array;
-  colorsFloat?: Float32Array;
-  colorsUint8?: Uint8Array;
-  opacityFloat?: Float32Array;
-  opacityUint8?: Uint8Array;
+  colorsFloat: Float32Array;
+  opacityFloat: Float32Array;
   stride: number;
   numSplats: number;
   headerOffset: number;
@@ -21,23 +19,29 @@ export class SplatLoader {
   async load(
     url: string,
     signal?: AbortSignal
-  ): Promise<{ buffer: ArrayBuffer; numSplats: number }> {
+  ): Promise<{ buffer: ArrayBuffer; numSplats: number, parsed: SplatDataBuffers }> {
     const res = await fetch(url, { method: "GET", signal });
     if (!res.ok) {
       throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
     }
 
     const buffer = await res.arrayBuffer();
-    const dv = new DataView(buffer);
+    // const dv = new DataView(buffer);
 
-    if (dv.byteLength < 4) {
-      throw new Error(`Invalid .splat file: header too small (${dv.byteLength} bytes)`);
-    }
+    // if (dv.byteLength < 4) {
+    //   throw new Error(`Invalid .splat file: header too small (${dv.byteLength} bytes)`);
+    // }
 
     // Read the number of splats from the first 4 bytes (change endianness if needed)
-    const numSplats = dv.getUint32(0, true);
+    // const numSplats = dv.getUint32(0, true);
 
-    return { buffer, numSplats };
+    if (buffer.byteLength % 32 !== 0) {
+      throw new Error(`File size ${buffer.byteLength} is not a multiple of 32!`);
+    }
+    const numSplats = buffer.byteLength / 32;
+    const parsed = SplatLoader.parse(buffer, numSplats);
+
+    return { buffer, numSplats, parsed };
   }
 
   /**
@@ -50,112 +54,51 @@ export class SplatLoader {
    *    - opacityUint8: store opacity as `Uint8Array` (1 byte per splat) when true, otherwise `Float32Array`
    *    - littleEndian: whether float values are little-endian (default true)
    */
-  static parse(
-    buffer: ArrayBuffer,
-    numSplats: number,
-    options?: {
-      headerOffset?: number;
-      colorUint8?: boolean;
-      opacityUint8?: boolean;
-      littleEndian?: boolean;
-    }
-  ): SplatDataBuffers {
-    const opts = {
-      headerOffset: 4,
-      colorUint8: false,
-      opacityUint8: false,
-      littleEndian: true,
-      ...(options || {}),
-    } as Required<Exclude<typeof options, undefined>> & {
-      headerOffset: number;
-      colorUint8: boolean;
-      opacityUint8: boolean;
-      littleEndian: boolean;
-    };
-
-    const dv = new DataView(buffer);
-    const le = opts.littleEndian;
-    let offset = opts.headerOffset;
-
-    // Per-splat fixed sizes (in bytes)
-    const bytesPos = 3 * 4; // 3 floats
-    const bytesScale = 3 * 4; // 3 floats
-    const bytesRot = 4 * 4; // quaternion
-    const bytesColor = opts.colorUint8 ? 3 : 3 * 4;
-    const bytesOpacity = opts.opacityUint8 ? 1 : 4;
-
-    const stride = bytesPos + bytesScale + bytesRot + bytesColor + bytesOpacity;
-
-    if (buffer.byteLength < offset + numSplats * stride) {
-      throw new Error(`Buffer too small for ${numSplats} splats (need ${offset + numSplats * stride} bytes, got ${buffer.byteLength}).`);
-    }
+  static parse(buffer: ArrayBuffer, numSplats: number): SplatDataBuffers {
+    const u8 = new Uint8Array(buffer);
+    const f32 = new Float32Array(buffer);
 
     const positions = new Float32Array(numSplats * 3);
     const scales = new Float32Array(numSplats * 3);
     const rotations = new Float32Array(numSplats * 4);
-    const colorsFloat = opts.colorUint8 ? undefined : new Float32Array(numSplats * 3);
-    const colorsUint8 = opts.colorUint8 ? new Uint8Array(numSplats * 3) : undefined;
-    const opacityFloat = opts.opacityUint8 ? undefined : new Float32Array(numSplats);
-    const opacityUint8 = opts.opacityUint8 ? new Uint8Array(numSplats) : undefined;
+    const colorsFloat = new Float32Array(numSplats * 3);
+    const opacityFloat = new Float32Array(numSplats);
 
-    // Loop and populate arrays
-    let readOffset = offset;
     for (let i = 0; i < numSplats; i++) {
-      const pBase = i * 3;
-      const sBase = i * 3;
-      const rBase = i * 4;
+      // 32 bytes per splat = 8 floats per splat
+      const fOffset = i * 8; 
+      const bOffset = i * 32;
 
-      // positions
-      positions[pBase + 0] = dv.getFloat32(readOffset, le); readOffset += 4;
-      positions[pBase + 1] = dv.getFloat32(readOffset, le); readOffset += 4;
-      positions[pBase + 2] = dv.getFloat32(readOffset, le); readOffset += 4;
+      // Positions (Floats 0, 1, 2)
+      positions[i * 3 + 0] = f32[fOffset + 0];
+      positions[i * 3 + 1] = f32[fOffset + 1];
+      positions[i * 3 + 2] = f32[fOffset + 2];
 
-      // scales
-      scales[sBase + 0] = dv.getFloat32(readOffset, le); readOffset += 4;
-      scales[sBase + 1] = dv.getFloat32(readOffset, le); readOffset += 4;
-      scales[sBase + 2] = dv.getFloat32(readOffset, le); readOffset += 4;
+      // Scales (Floats 3, 4, 5)
+      scales[i * 3 + 0] = f32[fOffset + 3];
+      scales[i * 3 + 1] = f32[fOffset + 4];
+      scales[i * 3 + 2] = f32[fOffset + 5];
 
-      // rotations (quaternion)
-      rotations[rBase + 0] = dv.getFloat32(readOffset, le); readOffset += 4;
-      rotations[rBase + 1] = dv.getFloat32(readOffset, le); readOffset += 4;
-      rotations[rBase + 2] = dv.getFloat32(readOffset, le); readOffset += 4;
-      rotations[rBase + 3] = dv.getFloat32(readOffset, le); readOffset += 4;
+      // Color (Bytes 24, 25, 26, 27) - stored in the same word as floats but read as bytes
+      // Note: This matches the "antisplat" layout
+      colorsFloat[i * 3 + 0] = u8[bOffset + 24] / 255;
+      colorsFloat[i * 3 + 1] = u8[bOffset + 25] / 255;
+      colorsFloat[i * 3 + 2] = u8[bOffset + 26] / 255;
+      opacityFloat[i]      = u8[bOffset + 27] / 255;
 
-      // colors
-      if (opts.colorUint8 && colorsUint8) {
-        colorsUint8[pBase + 0] = dv.getUint8(readOffset); readOffset += 1;
-        colorsUint8[pBase + 1] = dv.getUint8(readOffset); readOffset += 1;
-        colorsUint8[pBase + 2] = dv.getUint8(readOffset); readOffset += 1;
-      } else if (colorsFloat) {
-        colorsFloat[pBase + 0] = dv.getFloat32(readOffset, le); readOffset += 4;
-        colorsFloat[pBase + 1] = dv.getFloat32(readOffset, le); readOffset += 4;
-        colorsFloat[pBase + 2] = dv.getFloat32(readOffset, le); readOffset += 4;
-      } else {
-        // should not happen
-        readOffset += bytesColor;
-      }
-
-      // opacity
-      if (opts.opacityUint8 && opacityUint8) {
-        opacityUint8[i] = dv.getUint8(readOffset); readOffset += 1;
-      } else if (opacityFloat) {
-        opacityFloat[i] = dv.getFloat32(readOffset, le); readOffset += 4;
-      } else {
-        readOffset += bytesOpacity;
-      }
+      // Rotation (Bytes 28, 29, 30, 31)
+      // Packed: (value - 128) / 128
+      rotations[i * 4 + 0] = (u8[bOffset + 28] - 128) / 128;
+      rotations[i * 4 + 1] = (u8[bOffset + 29] - 128) / 128;
+      rotations[i * 4 + 2] = (u8[bOffset + 30] - 128) / 128;
+      rotations[i * 4 + 3] = (u8[bOffset + 31] - 128) / 128;
     }
 
     return {
-      positions,
-      scales,
-      rotations,
-      colorsFloat,
-      colorsUint8,
-      opacityFloat,
-      opacityUint8,
-      stride,
+      positions, scales, rotations, colorsFloat, opacityFloat,
+      stride: 32,
       numSplats,
-      headerOffset: opts.headerOffset,
+      headerOffset: 0
     };
   }
 }
