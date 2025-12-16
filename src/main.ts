@@ -1,6 +1,7 @@
 import './style.css'
 import * as THREE from "three";
-import { OrbitControls } from 'three/examples/jsm/Addons.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { SplatRenderer } from './classes/SplatRenderer';
 
 const sizes = {
   width: window.innerWidth,
@@ -21,6 +22,7 @@ scene.add(camera);
 const renderer = new THREE.WebGLRenderer({
   // optionally add settings like antialiasing, alpha channel, etc
 });
+renderer.setClearColor(0xAAAAAA);
 renderer.setSize(sizes.width, sizes.height);
 document.body.appendChild(renderer.domElement);
 
@@ -32,6 +34,15 @@ scene.add(cube);
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(2, 2, 5);
 scene.add(light);
+
+const splatRenderer = new SplatRenderer("test_red_sphere.splat");
+
+if (splatRenderer && (splatRenderer as any).mesh) {
+  scene.add((splatRenderer as any).mesh);
+  console.log('SplatRenderer mesh added to scene');
+} else {
+  console.warn('SplatRenderer created but mesh not available yet; add it once loaded.');
+}
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
