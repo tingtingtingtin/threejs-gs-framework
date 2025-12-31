@@ -1,5 +1,6 @@
 precision highp float;
 
+// DO NOT UNCOMMENT
 // uniform mat4 projectionMatrix;
 // uniform mat4 modelViewMatrix;
 uniform vec2 viewport;
@@ -70,7 +71,7 @@ void main() {
     vec4 clipPos = projectionMatrix * camPos;
     
     vec2 center = clipPos.xy / clipPos.w;
-    vec2 scale = vec2(0.1); // Placeholder scale
+    vec2 scale = vec2(1); // Placeholder scale
     
     gl_Position = vec4(center + position.xy * scale, clipPos.z, clipPos.w);
     vPosition = position.xy;
