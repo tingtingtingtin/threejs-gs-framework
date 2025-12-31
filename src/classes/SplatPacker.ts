@@ -33,14 +33,14 @@ export function packSplat(
   const V = mat3Mul(mat3Mul(R, mat3MulDiag(s2)), transpose3(R));
 
   // Pack Covariance as half-floats into .x, .y, .z of Pixel 1
-  packed[4] = (floatToHalf(V[0]) & 0xffff) | (floatToHalf(V[1]) << 16); // v00, v01
-  packed[5] = (floatToHalf(V[4]) & 0xffff) | (floatToHalf(V[2]) << 16); // v11, v02
-  packed[6] = (floatToHalf(V[5]) & 0xffff) | (floatToHalf(V[8]) << 16); // v12, v22
+  // packed[4] = (floatToHalf(V[0]) & 0xffff) | (floatToHalf(V[1]) << 16); // v00, v01
+  // packed[5] = (floatToHalf(V[4]) & 0xffff) | (floatToHalf(V[2]) << 16); // v11, v02
+  // packed[6] = (floatToHalf(V[5]) & 0xffff) | (floatToHalf(V[8]) << 16); // v12, v22
 
 	// Assume column major order
-	// packed[4] = (floatToHalf(V[0]) & 0xffff) | (floatToHalf(V[1]) << 16); 
-	// packed[5] = (floatToHalf(V[2]) & 0xffff) | (floatToHalf(V[4]) << 16); 
-	// packed[6] = (floatToHalf(V[5]) & 0xffff) | (floatToHalf(V[8]) << 16);
+	packed[4] = (floatToHalf(V[0]) & 0xffff) | (floatToHalf(V[1]) << 16); 
+	packed[5] = (floatToHalf(V[2]) & 0xffff) | (floatToHalf(V[4]) << 16); 
+	packed[6] = (floatToHalf(V[5]) & 0xffff) | (floatToHalf(V[8]) << 16);
 
   // Pack Color + Opacity into .w of Pixel 1
   const r = Math.round(color[0] * 255);

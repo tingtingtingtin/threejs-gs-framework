@@ -27,12 +27,23 @@ void main() {
     ivec2 texPos1 = ivec2((globalTexelIndex + 1u) % width, (globalTexelIndex + 1u) / width);
 
     uvec4 pixel0 = texelFetch(u_texture, texPos0, 0); // Position
-    uvec4 pixel1 = texelFetch(u_texture, texPos1, 0); // Covariance + Color
-
     vec3 splatPos = vec3(uintBitsToFloat(pixel0.x), uintBitsToFloat(pixel0.y), uintBitsToFloat(pixel0.z));
-    
-    // Transform to Camera Space
+
     vec4 camPos = viewMatrix * vec4(splatPos, 1.0);
+    if (camPos.z > -0.1) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+    }
+    
+    uvec4 pixel1 = texelFetch(u_texture, texPos1, 0); // Covariance + Color
+        uint c = pixel1.w;
+    float opacity = float(c >> 24) / 255.0;
+
+    if (opacity < 0.01) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+    }
+    // Transform to Camera Space
     vec4 clipPos = projectionMatrix * camPos;
 
     float clip = 1.2 * clipPos.w;
@@ -79,16 +90,22 @@ void main() {
 // );
 
     // simple jacobian
+    // mat3 J = mat3(
+    //     focal.x / camPos.z, 0., -(focal.x * camPos.x) / (camPos.z * camPos.z),
+    //     0., -focal.y / camPos.z, (focal.y * camPos.y) / (camPos.z * camPos.z),
+    //     0., 0., 0.
+    // );
+
+    float invZ = 1.0 / camPos.z;
+    float invZ2 = invZ * invZ;
+
     mat3 J = mat3(
-        focal.x / camPos.z, 0., -(focal.x * camPos.x) / (camPos.z * camPos.z),
-        0., -focal.y / camPos.z, (focal.y * camPos.y) / (camPos.z * camPos.z),
-        0., 0., 0.
+        focal.x * invZ, 0.0, -(focal.x * camPos.x) * invZ2,
+        0.0, -focal.y * invZ, (focal.y * camPos.y) * invZ2,
+        0.0, 0.0, 0.0
     );
 
-    // project view space cov to 2d
-    mat3 W = mat3(viewMatrix);
-    mat3 T = W * J;
-    mat3 cov2d = transpose(T) * cov3d * T;
+    mat3 cov2d = transpose(J) * cov3D_view * J;
     
     // apply blur to prevent antialiasing
     cov2d[0][0] += 0.3;
@@ -101,14 +118,22 @@ void main() {
     float lambda2 = mid - radius;
 
     if (lambda2 < 0.0) return;
+    if (max(lambda1, lambda2) < 0.5) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+    }
 
     // Calculate axis vectors for the quad stretching
     vec2 diagonalVector = normalize(vec2(cov2d[0][1], lambda1 - cov2d[0][0]) + vec2(0.0, 1e-6));
     vec2 majorAxis = min(sqrt(2.0 * lambda1), 1024.0) * diagonalVector;
     vec2 minorAxis = min(sqrt(2.0 * lambda2), 1024.0) * vec2(diagonalVector.y, -diagonalVector.x);
 
-    uint c = pixel1.w;
     vColor = vec4(float(c & 0xffu), float((c >> 8) & 0xffu), float((c >> 16) & 0xffu), float(c >> 24)) / 255.0;
+
+    if (vColor.a < (1.0 / 255.0)) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0); // Send behind the far plane
+        return;
+    }
 
     vPosition = position;
 
