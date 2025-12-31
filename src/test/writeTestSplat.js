@@ -13,7 +13,7 @@ dv.setFloat32(offset, 0.0, true); offset += 4; // Z
 
 // 2. Scale (3 x float32)
 dv.setFloat32(offset, 1.0, true); offset += 4; // Scale X (Large)
-dv.setFloat32(offset, 1.0, true); offset += 4; // Scale Y (Large)
+dv.setFloat32(offset, 2.0, true); offset += 4; // Scale Y (Large)
 dv.setFloat32(offset, 1.0, true); offset += 4; // Scale Z (Large)
 
 // 3. Color (3 x uint8) & Opacity (1 x uint8)

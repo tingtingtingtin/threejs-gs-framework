@@ -1,11 +1,12 @@
 precision highp float;
 
-varying vec4 vColor;
-varying vec2 vPosition;
+in vec4 vColor;
+in vec3 vPosition;
+layout(location = 0) out vec4 fragColor;
 
 void main() {
     float A = -dot(vPosition, vPosition);
     if (A < -4.0) discard;
     float B = exp(A) * vColor.a;
-    gl_FragColor = vec4(B * vColor.rgb, B);
+    fragColor = vec4(B * vColor.rgb, B);
 }

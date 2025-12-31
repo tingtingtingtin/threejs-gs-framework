@@ -6,42 +6,50 @@
  * Pack splat parameters into a compact Uint32Array representation
  */
 export function packSplat(
-	center: [number, number, number],
-	scale: [number, number, number],
-	rotation: [number, number, number, number],
-	color: [number, number, number],
-	opacity: number
+  center: [number, number, number],
+  scale: [number, number, number],
+  rotation: [number, number, number, number],
+  color: [number, number, number],
+  opacity: number
 ): Uint32Array {
-	// 6 texels per splat, each texel is 4 uint32 components; we populate .x and leave others 0
-	const packed = new Uint32Array(6 * 4);
+  // 2 texels per splat. Each texel has 4 components (RGBA / XYZW)
+  const packed = new Uint32Array(2 * 4);
 
-	// word0 (texel 0, .x): RGBA colors packed into a single uint32
-	const r = Math.round(color[0] * 255);
-	const g = Math.round(color[1] * 255);
-	const b = Math.round(color[2] * 255);
-	const a = Math.round(opacity * 255);
-	packed[0] = r | (g << 8) | (b << 16) | (a << 24);
+  // --- PIXEL 0 ---
+  // Store raw floats for center position (x, y, z)
+  // This uses 3 slots, leaving .w for something else
+  const floatView = new Float32Array(packed.buffer);
+  floatView[0] = center[0];
+  floatView[1] = center[1];
+  floatView[2] = center[2];
+  // packed[3] is currently empty (Pixel 0, .w)
 
-	// word1 (texel 1, .x): center.xy as float16 packed into one uint32
-	const centerXYHalf = floatToHalf(center[0]) | (floatToHalf(center[1]) << 16);
-	packed[4] = centerXYHalf;
+  // --- PIXEL 1 ---
+  // Compute Covariance V = R * S * S^T * R^T
+  const R = quatToMat3(rotation);
+  const s2 = [scale[0] * scale[0], scale[1] * scale[1], scale[2] * scale[2]];
+  
+  // V is symmetric, we only need 6 values: v00, v01, v02, v11, v12, v22
+  const V = mat3Mul(mat3Mul(R, mat3MulDiag(s2)), transpose3(R));
 
-	// word2 (texel 2, .x): center.z as float16 (upper/lower 16 bits) — store in lower 16
-	const centerZHalf = floatToHalf(center[2]);
-	packed[8] = centerZHalf;
+  // Pack Covariance as half-floats into .x, .y, .z of Pixel 1
+  packed[4] = (floatToHalf(V[0]) & 0xffff) | (floatToHalf(V[1]) << 16); // v00, v01
+  packed[5] = (floatToHalf(V[4]) & 0xffff) | (floatToHalf(V[2]) << 16); // v11, v02
+  packed[6] = (floatToHalf(V[5]) & 0xffff) | (floatToHalf(V[8]) << 16); // v12, v22
 
-	// Compute world-space covariance from rotation and scale: V = R * diag(s^2) * R^T
-	const R = quatToMat3(rotation);
-	const s2 = [scale[0] * scale[0], scale[1] * scale[1], scale[2] * scale[2]];
-	const V = mat3Mul(mat3Mul(R, mat3MulDiag(s2)), transpose3(R));
+	// Assume column major order
+	// packed[4] = (floatToHalf(V[0]) & 0xffff) | (floatToHalf(V[1]) << 16); 
+	// packed[5] = (floatToHalf(V[2]) & 0xffff) | (floatToHalf(V[4]) << 16); 
+	// packed[6] = (floatToHalf(V[5]) & 0xffff) | (floatToHalf(V[8]) << 16);
 
-	// word3/4/5 (.x channels): pack the symmetric 3x3 covariance entries as half floats
-	// Order: word3 -> (v00, v01), word4 -> (v11, v02), word5 -> (v12, v22)
-	packed[12] = (floatToHalf(V[0]) & 0xffff) | (floatToHalf(V[1]) << 16); // v00 | v01
-	packed[16] = (floatToHalf(V[4]) & 0xffff) | (floatToHalf(V[2]) << 16); // v11 | v02
-	packed[20] = (floatToHalf(V[5]) & 0xffff) | (floatToHalf(V[8]) << 16); // v12 | v22
+  // Pack Color + Opacity into .w of Pixel 1
+  const r = Math.round(color[0] * 255);
+  const g = Math.round(color[1] * 255);
+  const b = Math.round(color[2] * 255);
+  const a = Math.round(opacity * 255);
+  packed[7] = r | (g << 8) | (b << 16) | (a << 24);
 
-	return packed;
+  return packed;
 }
 
 // Multiply A * B where both are 3x3 (array of 9, column-major)
@@ -77,17 +85,31 @@ function transpose3(M: number[]): number[] {
 	];
 }
 
+// function quatToMat3(q: [number, number, number, number]): number[] {
+// 	const [x, y, z, w] = q;
+// 	const x2 = x + x, y2 = y + y, z2 = z + z;
+// 	const xx = x * x2, xy = x * y2, xz = x * z2;
+// 	const yy = y * y2, yz = y * z2, zz = z * z2;
+// 	const wx = w * x2, wy = w * y2, wz = w * z2;
+// 	return [
+// 		1 - (yy + zz), xy + wz, xz - wy,
+// 		xy - wz, 1 - (xx + zz), yz + wx,
+// 		xz + wy, yz - wx, 1 - (xx + yy),
+// 	];
+// }
+
 function quatToMat3(q: [number, number, number, number]): number[] {
-	const [x, y, z, w] = q;
-	const x2 = x + x, y2 = y + y, z2 = z + z;
-	const xx = x * x2, xy = x * y2, xz = x * z2;
-	const yy = y * y2, yz = y * z2, zz = z * z2;
-	const wx = w * x2, wy = w * y2, wz = w * z2;
-	return [
-		1 - (yy + zz), xy + wz, xz - wy,
-		xy - wz, 1 - (xx + zz), yz + wx,
-		xz + wy, yz - wx, 1 - (xx + yy),
-	];
+  const [w, x, y, z] = q; 
+  const x2 = x + x, y2 = y + y, z2 = z + z;
+  const xx = x * x2, xy = x * y2, xz = x * z2;
+  const yy = y * y2, yz = y * z2, zz = z * z2;
+  const wx = w * x2, wy = w * y2, wz = w * z2;
+
+  return [
+    1 - (yy + zz), xy + wz, xz - wy,
+    xy - wz, 1 - (xx + zz), yz + wx,
+    xz + wy, yz - wx, 1 - (xx + yy)
+  ];
 }
 
 /**

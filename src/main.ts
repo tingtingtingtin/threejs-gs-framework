@@ -29,13 +29,14 @@ document.body.appendChild(renderer.domElement);
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 const material = new THREE.MeshStandardMaterial({ color: 0x0077ff });
 const cube = new THREE.Mesh(geometry, material);
-scene.add(cube);
+// scene.add(cube);
 
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(2, 2, 5);
 scene.add(light);
 
-const splatRenderer = new SplatRenderer("test_red_sphere.splat");
+const splatRenderer = new SplatRenderer("https://media.reshot.ai/models/nike_next/model.splat");
+// const splatRenderer = new SplatRenderer("test_red_sphere.splat");
 
 if (splatRenderer && (splatRenderer as any).mesh) {
   scene.add((splatRenderer as any).mesh);

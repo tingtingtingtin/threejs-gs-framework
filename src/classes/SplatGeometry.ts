@@ -15,18 +15,17 @@ export function createSplatGeometry(data: SplatDataBuffers): {
 	textureSize: THREE.Vector2;
 } {
 	const geometry = new THREE.InstancedBufferGeometry();
-	const WORDS_PER_SPLAT = 6; // texels per splat (one uint32 in .x per texel)
+	const WORDS_PER_SPLAT = 2;
 
-	// Set up quad base geometry (4 vertices, 2 triangles)
-	const quad = new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]);
+	const quad = new Float32Array([-2, -2, 0, 2, -2, 0, 2, 2, 0, -2, 2, 0]);
 	geometry.setAttribute("position", new THREE.BufferAttribute(quad, 3));
-
-	const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
-	geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+	geometry.setIndex(new THREE.BufferAttribute(new Uint16Array([0, 1, 2, 0, 2, 3]), 1));
 
 	// Pack splat data into texture
 	console.log(`[SplatGeometry] Packing ${data.numSplats} splats into texture...`);
-	const texData = new Uint32Array(data.numSplats * WORDS_PER_SPLAT * 4);
+	const texWidth = 2048; // Standardize width to 1024 splats wide
+	const texHeight = Math.ceil((data.numSplats * WORDS_PER_SPLAT) / texWidth);
+	const texData = new Uint32Array(texWidth * texHeight * 4);
 
 	for (let i = 0; i < data.numSplats; i++) {
 		const center: [number, number, number] = [
@@ -56,10 +55,10 @@ export function createSplatGeometry(data: SplatDataBuffers): {
 		texData.set(packed, i * WORDS_PER_SPLAT * 4);
 	}
 
-	// Create texture
-	const texels = data.numSplats * WORDS_PER_SPLAT;
-	const texWidth = Math.ceil(Math.sqrt(texels));
-	const texHeight = Math.ceil(texels / texWidth);
+	// // Create texture
+	// const texels = data.numSplats * WORDS_PER_SPLAT;
+	// const texWidth = Math.ceil(Math.sqrt(texels));
+	// const texHeight = Math.ceil(texels / texWidth);
 	console.log(
 		`[SplatGeometry] Texture size: ${texWidth} x ${texHeight} (${data.numSplats} splats)`
 	);
@@ -83,7 +82,7 @@ export function createSplatGeometry(data: SplatDataBuffers): {
 		new THREE.InstancedBufferAttribute(indexArray, 1, false, 1)
 	);
 
-	geometry.instanceCount = Math.min(data.numSplats, 1000); // Start with 1000
+	geometry.instanceCount = Math.min(data.numSplats, 10000); // Start with 1000
 
 	console.log(`[SplatGeometry] Geometry created, instanceCount: ${geometry.instanceCount}`);
 

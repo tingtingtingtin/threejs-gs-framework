@@ -75,9 +75,9 @@ export class SplatLoader {
       positions[i * 3 + 2] = f32[fOffset + 2];
 
       // Scales (Floats 3, 4, 5)
-      scales[i * 3 + 0] = f32[fOffset + 3];
-      scales[i * 3 + 1] = f32[fOffset + 4];
-      scales[i * 3 + 2] = f32[fOffset + 5];
+      scales[i * 3 + 0] = Math.exp(f32[fOffset + 3]);
+      scales[i * 3 + 1] = Math.exp(f32[fOffset + 4]);
+      scales[i * 3 + 2] = Math.exp(f32[fOffset + 5]);
 
       // Color (Bytes 24, 25, 26, 27) - stored in the same word as floats but read as bytes
       // Note: This matches the "antisplat" layout
