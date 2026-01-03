@@ -1,8 +1,34 @@
-# Three.js Gaussian Splat Renderer (WIP - Learning Project)
+# Three.js Gaussian Splat Renderer
+
+`(WIP - This is a learning project)`
 
 A personal attempt to learn **Gaussian Splatting** by building a custom renderer with Three.js.
 
 Heavily inspired by and modeled after [antimatter15/splat](https://github.com/antimatter15/splat/) by antimatter and [Spark](https://github.com/sparkjsdev/spark/) by World Labs Technologies.
+
+## Example
+
+<table>
+<tr>
+<td width="50%">
+  
+**Current Implementation (20k splats rendered)**
+  
+<img width="100%" alt="nikeshoesplat" src="https://github.com/user-attachments/assets/8f4035c0-0966-4755-a1b6-4bb87828c02c" />
+
+
+</td>
+<td width="50%">
+  
+**Goal (antimatter15/splat)**
+  
+<img width="100%" alt="image" src="https://github.com/user-attachments/assets/6f5280ad-842b-454f-9ef4-2bc6ae406792" />
+
+
+</td>
+</tr>
+</table>
+
 
 ## Tech Stack
 
