@@ -9,10 +9,11 @@ import { packSplat } from "./SplatPacker";
 /**
  * Create and configure instanced geometry from splat data
  */
-export async function createSplatGeometry(data: SplatDataBuffers): Promise<{
+export async function createSplatGeometry(data: SplatDataBuffers, instanceCount: number): Promise<{
     geometry: THREE.InstancedBufferGeometry;
     texture: THREE.DataTexture;
     textureSize: THREE.Vector2;
+    texData: Uint32Array;
 }> {
     const geometry = new THREE.InstancedBufferGeometry();
     const WORDS_PER_SPLAT = 2;
@@ -86,7 +87,7 @@ export async function createSplatGeometry(data: SplatDataBuffers): Promise<{
         new THREE.InstancedBufferAttribute(indexArray, 1, false, 1)
     );
 
-    geometry.instanceCount = Math.min(data.numSplats, 50000);
+    geometry.instanceCount = Math.min(data.numSplats, instanceCount);
 
     console.log(`[SplatGeometry] Geometry created, instanceCount: ${geometry.instanceCount}`);
 
@@ -94,5 +95,6 @@ export async function createSplatGeometry(data: SplatDataBuffers): Promise<{
         geometry,
         texture,
         textureSize: new THREE.Vector2(texWidth, texHeight),
+        texData,
     };
 }
