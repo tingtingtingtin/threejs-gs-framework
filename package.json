@@ -52,13 +52,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tingtingtingtin/threejs-splat.git"
+    "url": "git+https://github.com/tingtingtingtin/splatkit.git"
   },
   "keywords": ["gaussian-splatting", "three.js", "webgl", "3d", "splat"],
   "author": "tingtingtingtin",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/tingtingtingtin/threejs-splat/issues"
+    "url": "https://github.com/tingtingtingtin/splatkit/issues"
   },
-  "homepage": "https://github.com/tingtingtingtin/threejs-splat#readme"
+  "homepage": "https://github.com/tingtingtingtin/splatkit#readme"
 }
