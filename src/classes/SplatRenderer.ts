@@ -108,10 +108,14 @@ export class SplatRenderer {
     this.camera.updateMatrixWorld();
     this.mesh.updateMatrixWorld();
 
-    const modelViewMatrix = new THREE.Matrix4()
-      .multiplyMatrices(this.camera.matrixWorldInverse, this.mesh.matrixWorld);
-    const viewProjMatrix = new THREE.Matrix4()
-      .multiplyMatrices(this.camera.projectionMatrix, modelViewMatrix);
+    const modelViewMatrix = new THREE.Matrix4().multiplyMatrices(
+      this.camera.matrixWorldInverse,
+      this.mesh.matrixWorld
+    );
+    const viewProjMatrix = new THREE.Matrix4().multiplyMatrices(
+      this.camera.projectionMatrix,
+      modelViewMatrix
+    );
 
     const desiredInstanceCount = this.getDesiredInstanceCount();
     if (desiredInstanceCount <= 0) {
@@ -124,7 +128,7 @@ export class SplatRenderer {
       data: {
         viewMatrix: viewProjMatrix.elements,
         vertexCount: this.splatData.numSplats,
-        instanceCount: desiredInstanceCount
+        instanceCount: desiredInstanceCount,
       },
     });
   }
@@ -154,10 +158,15 @@ export class SplatRenderer {
     }
 
     const desiredInstanceCount = this.getDesiredInstanceCount();
-    const indexAttr = this.geometry.getAttribute("splatIndex") as THREE.InstancedBufferAttribute | undefined;
+    const indexAttr = this.geometry.getAttribute("splatIndex") as
+      | THREE.InstancedBufferAttribute
+      | undefined;
     const indexCount = indexAttr?.count ?? 0;
 
-    if (this.geometry.instanceCount === desiredInstanceCount && indexCount >= desiredInstanceCount) {
+    if (
+      this.geometry.instanceCount === desiredInstanceCount &&
+      indexCount >= desiredInstanceCount
+    ) {
       return false;
     }
 
@@ -179,7 +188,10 @@ export class SplatRenderer {
     this.isSorting = false;
     this.needsSort = false;
     this.geometry.instanceCount = desiredInstanceCount;
-    this.geometry.setAttribute("splatIndex", new THREE.InstancedBufferAttribute(indexArray, 1, false, 1));
+    this.geometry.setAttribute(
+      "splatIndex",
+      new THREE.InstancedBufferAttribute(indexArray, 1, false, 1)
+    );
 
     this.worker.postMessage({
       method: "setData",
@@ -217,12 +229,14 @@ export class SplatRenderer {
         data: {
           buffer: buffer,
           numSplats: numSplats,
-          instanceCount: this.geometry.instanceCount
+          instanceCount: this.geometry.instanceCount,
         },
       });
 
       // Compute centroid
-      let cx = 0, cy = 0, cz = 0;
+      let cx = 0,
+        cy = 0,
+        cz = 0;
       for (let i = 0; i < parsed.numSplats; i++) {
         cx += parsed.positions[i * 3 + 0];
         cy += parsed.positions[i * 3 + 1];
@@ -251,8 +265,11 @@ export class SplatRenderer {
         });
       };
 
-      const { geometry, texture, textureSize, texData } =
-        await createSplatGeometry(parsed, this.targetInstanceCount, onPackProgress);
+      const { geometry, texture, textureSize, texData } = await createSplatGeometry(
+        parsed,
+        this.targetInstanceCount,
+        onPackProgress
+      );
 
       this.material.uniforms.u_texture.value = texture;
       this.material.uniforms.u_textureSize.value = textureSize;
@@ -269,7 +286,9 @@ export class SplatRenderer {
         progress: 1,
       });
 
-      console.log(`[SplatRenderer] ✓ Texture created and bound, instanceCount: ${geometry.instanceCount}`);
+      console.log(
+        `[SplatRenderer] ✓ Texture created and bound, instanceCount: ${geometry.instanceCount}`
+      );
 
       this.camera.updateMatrixWorld();
     } catch (error) {

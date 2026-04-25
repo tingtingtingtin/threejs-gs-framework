@@ -281,7 +281,9 @@ export class SplatViewer {
     const worldUnitsPerPixelY = (2 * toTarget * Math.tan(fovRadians / 2)) / height;
     const worldUnitsPerPixelX = worldUnitsPerPixelY * this.camera.aspect;
 
-    const rightAxis = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
+    const rightAxis = new THREE.Vector3()
+      .setFromMatrixColumn(this.camera.matrixWorld, 0)
+      .normalize();
     const upAxis = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
 
     const offset = new THREE.Vector3()

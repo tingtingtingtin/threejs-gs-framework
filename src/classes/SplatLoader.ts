@@ -26,8 +26,8 @@ export class SplatLoader {
   async load(
     url: string,
     signal?: AbortSignal,
-    onProgress?: (progress: SplatLoadProgress) => void,
-  ): Promise<{ buffer: ArrayBuffer; numSplats: number, parsed: SplatDataBuffers }> {
+    onProgress?: (progress: SplatLoadProgress) => void
+  ): Promise<{ buffer: ArrayBuffer; numSplats: number; parsed: SplatDataBuffers }> {
     const res = await fetch(url, { method: "GET", signal });
     if (!res.ok) {
       throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
@@ -133,7 +133,7 @@ export class SplatLoader {
 
     for (let i = 0; i < numSplats; i++) {
       // 32 bytes per splat = 8 floats per splat
-      const fOffset = i * 8; 
+      const fOffset = i * 8;
       const bOffset = i * 32;
 
       // Positions (Floats 0, 1, 2)
@@ -150,7 +150,7 @@ export class SplatLoader {
       colorsFloat[i * 3 + 0] = u8[bOffset + 24] / 255;
       colorsFloat[i * 3 + 1] = u8[bOffset + 25] / 255;
       colorsFloat[i * 3 + 2] = u8[bOffset + 26] / 255;
-      opacityFloat[i]      = u8[bOffset + 27] / 255;
+      opacityFloat[i] = u8[bOffset + 27] / 255;
 
       // Rotation (Bytes 28, 29, 30, 31)
       // Packed: (value - 128) / 128
@@ -161,10 +161,14 @@ export class SplatLoader {
     }
 
     return {
-      positions, scales, rotations, colorsFloat, opacityFloat,
+      positions,
+      scales,
+      rotations,
+      colorsFloat,
+      opacityFloat,
       stride: 32,
       numSplats,
-      headerOffset: 0
+      headerOffset: 0,
     };
   }
 }

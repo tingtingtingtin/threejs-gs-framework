@@ -57,8 +57,6 @@ self.onmessage = (e: MessageEvent) => {
       depthIndex[--counts[depths[i]]] = i;
     }
 
-    self.postMessage(
-      { method: "sortDone", depthIndex },
-    );
+    self.postMessage({ method: "sortDone", depthIndex });
   }
 };

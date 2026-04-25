@@ -21,9 +21,9 @@ export function packSplat(
   const s2 = [scale[0] * scale[0], scale[1] * scale[1], scale[2] * scale[2]];
   const V = mat3Mul(mat3Mul(transpose3(R), mat3MulDiag(s2)), R);
 
-  packed[4] = ((floatToHalf(V[0]*4) & 0xffff) | ((floatToHalf(V[1]*4) & 0xffff) << 16)) >>> 0;
-  packed[5] = ((floatToHalf(V[2]*4) & 0xffff) | ((floatToHalf(V[4]*4) & 0xffff) << 16)) >>> 0;
-  packed[6] = ((floatToHalf(V[5]*4) & 0xffff) | ((floatToHalf(V[8]*4) & 0xffff) << 16)) >>> 0;
+  packed[4] = ((floatToHalf(V[0] * 4) & 0xffff) | ((floatToHalf(V[1] * 4) & 0xffff) << 16)) >>> 0;
+  packed[5] = ((floatToHalf(V[2] * 4) & 0xffff) | ((floatToHalf(V[4] * 4) & 0xffff) << 16)) >>> 0;
+  packed[6] = ((floatToHalf(V[5] * 4) & 0xffff) | ((floatToHalf(V[8] * 4) & 0xffff) << 16)) >>> 0;
 
   const r = Math.round(color[0] * 255);
   const g = Math.round(color[1] * 255);

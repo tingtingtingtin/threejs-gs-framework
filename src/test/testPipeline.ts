@@ -9,7 +9,10 @@ function halfToFloat(h: number): number {
   const he = (h & 0x7c00) >> 10;
   const hm = h & 0x03ff;
   if (he === 0x1f) return hs ? -Infinity : Infinity;
-  if (he === 0) { const val = hm / 1024.0; return hs ? -val : val; }
+  if (he === 0) {
+    const val = hm / 1024.0;
+    return hs ? -val : val;
+  }
   const fval = Math.pow(2, he - 15) * (1 + hm / 1024.0);
   return hs ? -fval : fval;
 }
@@ -29,11 +32,7 @@ function unpackCovFromPixel1(pixel1: Uint32Array): number[] {
   const [v20, v11] = unpackHalf2x16(pixel1[1]);
   const [v21, v22] = unpackHalf2x16(pixel1[2]);
   // column-major 3x3
-  return [
-    v00, v10, v20,
-    v10, v11, v21,
-    v20, v21, v22,
-  ];
+  return [v00, v10, v20, v10, v11, v21, v20, v21, v22];
 }
 
 function computeExpectedCov(
@@ -41,13 +40,13 @@ function computeExpectedCov(
   rotation: [number, number, number, number]
 ): number[] {
   const R = quatToMat3(rotation);
-  const S2 = mat3MulDiag([scale[0]*scale[0], scale[1]*scale[1], scale[2]*scale[2]]);
+  const S2 = mat3MulDiag([scale[0] * scale[0], scale[1] * scale[1], scale[2] * scale[2]]);
   return mat3Mul(mat3Mul(R, S2), transpose3(R));
 }
 
-function normalizeQuat(q: [number,number,number,number]): [number,number,number,number] {
-  const len = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
-  return [q[0]/len, q[1]/len, q[2]/len, q[3]/len];
+function normalizeQuat(q: [number, number, number, number]): [number, number, number, number] {
+  const len = Math.sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+  return [q[0] / len, q[1] / len, q[2] / len, q[3] / len];
 }
 
 // Half-float has ~3 decimal digits of precision; allow 0.3% relative error
@@ -56,18 +55,21 @@ function assertNearHalf(actual: number, expected: number, label: string) {
   const tol = Math.max(Math.abs(expected) * 0.003, 1e-4);
   assert(
     Math.abs(actual - expected) <= tol,
-    `${label}: expected ${expected}, got ${actual}, diff ${Math.abs(actual-expected)}`
+    `${label}: expected ${expected}, got ${actual}, diff ${Math.abs(actual - expected)}`
   );
 }
 
 function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
   // Check all three 2x2 leading principal minors
-  const a = M[0], b = M[1], c = M[2];
-  const d = M[4], e = M[5];
+  const a = M[0],
+    b = M[1],
+    c = M[2];
+  const d = M[4],
+    e = M[5];
   const f = M[8];
   const minor1 = a;
   const minor2 = a * d - b * b;
-  const minor3 = a*(d*f - e*e) - b*(b*f - e*c) + c*(b*e - d*c);
+  const minor3 = a * (d * f - e * e) - b * (b * f - e * c) + c * (b * e - d * c);
   const minEig = Math.min(minor1, minor2, minor3);
   return { psd: minEig >= -1e-6, minEig };
 }
@@ -79,10 +81,10 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
 
   const cases: Array<{
     label: string;
-    center: [number,number,number];
-    scale: [number,number,number];
-    rotation: [number,number,number,number];
-    color: [number,number,number];
+    center: [number, number, number];
+    scale: [number, number, number];
+    rotation: [number, number, number, number];
+    color: [number, number, number];
     opacity: number;
   }> = [
     {
@@ -172,7 +174,7 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
 
     // --- compare against expected R*S²*Rᵀ ---
     const expectedCov = computeExpectedCov(scale, rotation);
-    const labels6 = ["v00","v10","v20","v11","v21","v22"];
+    const labels6 = ["v00", "v10", "v20", "v11", "v21", "v22"];
     const indices6 = [0, 1, 2, 4, 5, 8]; // unique entries in column-major
     for (let k = 0; k < 6; k++) {
       assertNearHalf(unpackedCov[indices6[k]], expectedCov[indices6[k]], `${label} ${labels6[k]}`);
@@ -214,14 +216,22 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
 
     // Correct Jacobian (row 0 sign fixed)
     const J = [
-      -(focal[0] * invZ),            0.0,                           0.0,
-       0.0,                          -focal[1] * invZ,              0.0,
-       (focal[0] * cx) * invZ2,     -(focal[1] * cy) * invZ2,      0.0,
+      -(focal[0] * invZ),
+      0.0,
+      0.0,
+      0.0,
+      -focal[1] * invZ,
+      0.0,
+      focal[0] * cx * invZ2,
+      -(focal[1] * cy) * invZ2,
+      0.0,
     ];
 
     const cov2d = mat3Mul(mat3Mul(J, cov3dView), transpose3(J));
 
-    const a = cov2d[0], b = cov2d[1], d = cov2d[4];
+    const a = cov2d[0],
+      b = cov2d[1],
+      d = cov2d[4];
     const mid = (a + d) / 2.0;
     const radius = Math.sqrt(((a - d) / 2.0) ** 2 + b * b);
     return { lambda1: mid + radius, lambda2: mid - radius };
@@ -229,26 +239,30 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
 
   // Named view rotations (column-major 3x3 rotation matrices)
   const viewRotations: Array<{ label: string; R: number[] }> = [
-    { label: "identity",         R: [1,0,0, 0,1,0, 0,0,1] },
-    { label: "90deg around X",   R: [1,0,0, 0,0,1, 0,-1,0] },
-    { label: "90deg around Y",   R: [0,0,-1, 0,1,0, 1,0,0] },
-    { label: "look down (-Y)",   R: [1,0,0, 0,0,1, 0,-1,0] },
-    { label: "look up (+Y)",     R: [1,0,0, 0,0,-1, 0,1,0] },
-    { label: "180deg around Y",  R: [-1,0,0, 0,1,0, 0,0,-1] },
+    { label: "identity", R: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
+    { label: "90deg around X", R: [1, 0, 0, 0, 0, 1, 0, -1, 0] },
+    { label: "90deg around Y", R: [0, 0, -1, 0, 1, 0, 1, 0, 0] },
+    { label: "look down (-Y)", R: [1, 0, 0, 0, 0, 1, 0, -1, 0] },
+    { label: "look up (+Y)", R: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
+    { label: "180deg around Y", R: [-1, 0, 0, 0, 1, 0, 0, 0, -1] },
   ];
 
   const splats: Array<{
     label: string;
-    scale: [number,number,number];
-    rotation: [number,number,number,number];
+    scale: [number, number, number];
+    rotation: [number, number, number, number];
   }> = [
-    { label: "flat disk XZ",    scale: [1.0, 0.01, 1.0], rotation: normalizeQuat([1,0,0,0]) },
-    { label: "vertical slab",   scale: [0.1, 1.0, 0.1],  rotation: normalizeQuat([1,0,0,0]) },
-    { label: "anisotropic",     scale: [2.0, 0.1, 0.5],  rotation: normalizeQuat([0.7071,0.7071,0,0]) },
+    { label: "flat disk XZ", scale: [1.0, 0.01, 1.0], rotation: normalizeQuat([1, 0, 0, 0]) },
+    { label: "vertical slab", scale: [0.1, 1.0, 0.1], rotation: normalizeQuat([1, 0, 0, 0]) },
+    {
+      label: "anisotropic",
+      scale: [2.0, 0.1, 0.5],
+      rotation: normalizeQuat([0.7071, 0.7071, 0, 0]),
+    },
   ];
 
-  const focal: [number,number] = [800, 800];
-  const camPos: [number,number,number] = [0.5, 0.3, -3.0];
+  const focal: [number, number] = [800, 800];
+  const camPos: [number, number, number] = [0.5, 0.3, -3.0];
 
   for (const splat of splats) {
     const cov3d = computeExpectedCov(splat.scale, splat.rotation);
@@ -272,7 +286,9 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
 // packSplat's quatToMat3 assumes a unit quaternion. Test that normalizing
 // before packing produces a PSD covariance, and skipping normalization may not.
 {
-  function simulateLoaderQuat(bytes: [number,number,number,number]): [number,number,number,number] {
+  function simulateLoaderQuat(
+    bytes: [number, number, number, number]
+  ): [number, number, number, number] {
     return [
       (bytes[0] - 128) / 128,
       (bytes[1] - 128) / 128,
@@ -281,7 +297,7 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
     ];
   }
 
-  const byteQuats: Array<[number,number,number,number]> = [
+  const byteQuats: Array<[number, number, number, number]> = [
     [200, 100, 180, 150],
     [255, 128, 128, 128],
     [128, 255, 128, 128],
@@ -290,10 +306,10 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
 
   for (const bytes of byteQuats) {
     const raw = simulateLoaderQuat(bytes);
-    const len = Math.sqrt(raw.reduce((s,v) => s + v*v, 0));
-    const normalized = raw.map(v => v / len) as [number,number,number,number];
+    const len = Math.sqrt(raw.reduce((s, v) => s + v * v, 0));
+    const normalized = raw.map((v) => v / len) as [number, number, number, number];
 
-    const covRaw  = computeExpectedCov([0.5, 0.2, 0.3], raw);
+    const covRaw = computeExpectedCov([0.5, 0.2, 0.3], raw);
     const covNorm = computeExpectedCov([0.5, 0.2, 0.3], normalized);
 
     const { psd: psdNorm } = isSymmetricPSD(covNorm);
@@ -301,7 +317,9 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
 
     const { psd: psdRaw, minEig } = isSymmetricPSD(covRaw);
     if (!psdRaw) {
-      console.log(`  NOTE: unnormalized quat ${bytes} produced non-PSD cov (minEig=${minEig.toFixed(6)}) — normalize before packing`);
+      console.log(
+        `  NOTE: unnormalized quat ${bytes} produced non-PSD cov (minEig=${minEig.toFixed(6)}) — normalize before packing`
+      );
     }
   }
   console.log("PASS: loader quantization suite");
@@ -315,7 +333,7 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
   function mat3IsOrthogonal(M: number[]): { ok: boolean; maxErr: number } {
     // R * Rᵀ should equal identity
     const RRt = mat3Mul(M, transpose3(M));
-    const identity = [1,0,0, 0,1,0, 0,0,1];
+    const identity = [1, 0, 0, 0, 1, 0, 0, 0, 1];
     const maxErr = RRt.reduce((m, v, i) => Math.max(m, Math.abs(v - identity[i])), 0);
     return { ok: maxErr < 1e-5, maxErr };
   }
@@ -324,49 +342,55 @@ function isSymmetricPSD(M: number[]): { psd: boolean; minEig: number } {
   // viewMatrix = inverse of camera world matrix
   // For a camera at position P looking at origin with up=(0,1,0):
   function makeLookAtView(
-    eye: [number,number,number],
-    target: [number,number,number],
-    up: [number,number,number]
+    eye: [number, number, number],
+    target: [number, number, number],
+    up: [number, number, number]
   ): number[] {
     // forward = normalize(eye - target)
-    let fx = eye[0]-target[0], fy = eye[1]-target[1], fz = eye[2]-target[2];
-    const fl = Math.sqrt(fx*fx+fy*fy+fz*fz);
-    fx/=fl; fy/=fl; fz/=fl;
+    let fx = eye[0] - target[0],
+      fy = eye[1] - target[1],
+      fz = eye[2] - target[2];
+    const fl = Math.sqrt(fx * fx + fy * fy + fz * fz);
+    fx /= fl;
+    fy /= fl;
+    fz /= fl;
     // right = normalize(forward x up)  -- note: Three.js uses right-hand
-    let rx = fy*up[2]-fz*up[1], ry = fz*up[0]-fx*up[2], rz = fx*up[1]-fy*up[0];
-    const rl = Math.sqrt(rx*rx+ry*ry+rz*rz);
-    rx/=rl; ry/=rl; rz/=rl;
+    let rx = fy * up[2] - fz * up[1],
+      ry = fz * up[0] - fx * up[2],
+      rz = fx * up[1] - fy * up[0];
+    const rl = Math.sqrt(rx * rx + ry * ry + rz * rz);
+    rx /= rl;
+    ry /= rl;
+    rz /= rl;
     // up = forward x right  (reorthogonalize)
-    const ux = fy*rz-fz*ry, uy = fz*rx-fx*rz, uz = fx*ry-fy*rx;
-    // column-major 3x3: columns are right, up, -forward... 
+    const ux = fy * rz - fz * ry,
+      uy = fz * rx - fx * rz,
+      uz = fx * ry - fy * rx;
+    // column-major 3x3: columns are right, up, -forward...
     // Three.js viewMatrix upper-left 3x3 rows are [right, up, -forward]
     // stored column-major: col0=(right.x, up.x, -fwd.x), etc.
-    return [
-      rx, ux, -fx,
-      ry, uy, -fy,
-      rz, uz, -fz,
-    ];
+    return [rx, ux, -fx, ry, uy, -fy, rz, uz, -fz];
   }
 
-  const cameraPositions: Array<{ label: string; eye: [number,number,number] }> = [
-    { label: "front",       eye: [0, 0, 5] },
-    { label: "above",       eye: [0, 5, 0] },
-    { label: "below",       eye: [0, -5, 0] },
+  const cameraPositions: Array<{ label: string; eye: [number, number, number] }> = [
+    { label: "front", eye: [0, 0, 5] },
+    { label: "above", eye: [0, 5, 0] },
+    { label: "below", eye: [0, -5, 0] },
     { label: "above-angle", eye: [2, 5, 2] },
     { label: "below-angle", eye: [2, -5, 2] },
   ];
 
   for (const { label, eye } of cameraPositions) {
-    const V = makeLookAtView(eye, [0,0,0], [0,1,0]);
+    const V = makeLookAtView(eye, [0, 0, 0], [0, 1, 0]);
     const { ok, maxErr } = mat3IsOrthogonal(V);
     assert(ok, `viewMatrix upper-left 3x3 not orthogonal for camera "${label}": maxErr=${maxErr}`);
     console.log(`  view "${label}": orthogonal ✓ (maxErr=${maxErr.toExponential(2)})`);
   }
 
   // Also verify: V * cov * Vᵀ stays PSD for each view angle
-  const cov3d = computeExpectedCov([1.0, 0.01, 1.0], normalizeQuat([1,0,0,0]));
+  const cov3d = computeExpectedCov([1.0, 0.01, 1.0], normalizeQuat([1, 0, 0, 0]));
   for (const { label, eye } of cameraPositions) {
-    const V = makeLookAtView(eye, [0,0,0], [0,1,0]);
+    const V = makeLookAtView(eye, [0, 0, 0], [0, 1, 0]);
     const covView = mat3Mul(mat3Mul(V, cov3d), transpose3(V));
     const { psd, minEig } = isSymmetricPSD(covView);
     assert(psd, `V * cov * Vᵀ not PSD for camera "${label}": minEig=${minEig}`);

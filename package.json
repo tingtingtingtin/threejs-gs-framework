@@ -4,24 +4,24 @@
   "version": "0.1.1",
   "type": "module",
   "description": "Experimental Three.js Gaussian Splat viewer with embeddable headless and UI wrappers.",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist-lib/index.js",
+  "module": "./dist-lib/index.js",
+  "types": "./dist-lib/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist-lib/index.d.ts",
+      "import": "./dist-lib/index.js"
     },
     "./style.css": "./src/style.css"
   },
   "files": [
-    "dist/index.js",
-    "dist/index.d.ts",
-    "dist/SplatViewer.d.ts",
-    "dist/SplatViewerUI.d.ts",
-    "dist/classes/",
-    "dist/utils/",
-    "dist/assets/",
+    "dist-lib/index.js",
+    "dist-lib/index.d.ts",
+    "dist-lib/SplatViewer.d.ts",
+    "dist-lib/SplatViewerUI.d.ts",
+    "dist-lib/classes/",
+    "dist-lib/utils/",
+    "dist-lib/assets/",
     "src/style.css",
     "README.md"
   ],
@@ -30,20 +30,22 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "build:lib": "tsc && vite build --config vite.lib.config.ts",
     "preview": "vite preview",
-    "test:loader": "tsx ./src/test/testLoader.ts",
-    "test:renderer": "tsx ./src/test/testRenderer.ts"
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/"
   },
   "devDependencies": {
-    "@types/three": "^0.182.0",
     "@types/node": "^25.0.2",
+    "@types/three": "^0.182.0",
     "jsdom": "^27.3.0",
+    "prettier": "^3.8.3",
+    "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
-    "vite-plugin-dts": "^4.5.4",
-    "ts-node": "^10.9.2"
+    "vite-plugin-dts": "^4.5.4"
   },
   "peerDependencies": {
     "three": "^0.182.0"

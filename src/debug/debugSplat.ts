@@ -8,8 +8,14 @@ export function debugSplat(
   modelViewMatrix: THREE.Matrix4,
   projectionMatrix: THREE.Matrix4,
   focal: THREE.Vector2,
-  verbose: boolean,
-): { lambda1: number; lambda2: number; majorAxisPx: number; camPos: THREE.Vector3; trace3d: number } {
+  verbose: boolean
+): {
+  lambda1: number;
+  lambda2: number;
+  majorAxisPx: number;
+  camPos: THREE.Vector3;
+  trace3d: number;
+} {
   const p0 = splatIndex * 2 * 4;
   const p1 = splatIndex * 2 * 4 + 4;
 
@@ -30,19 +36,13 @@ export function debugSplat(
   const [u2x, u2y] = unpackHalf2x16(pixel1[1]);
   const [u3x, u3y] = unpackHalf2x16(pixel1[2]);
 
-  const cov3d = [
-    u1x, u1y, u2x,
-    u1y, u2y, u3x,
-    u2x, u3x, u3y,
-  ];
+  const cov3d = [u1x, u1y, u2x, u1y, u2y, u3x, u2x, u3x, u3y];
 
-  const x = camPos.x, y = camPos.y, z = camPos.z;
+  const x = camPos.x,
+    y = camPos.y,
+    z = camPos.z;
   const z2 = z * z;
-  const J = [
-    focal.x / z, 0, -(focal.x * x) / z2,
-    0, -focal.y / z, (focal.y * y) / z2,
-    0, 0, 0,
-  ];
+  const J = [focal.x / z, 0, -(focal.x * x) / z2, 0, -focal.y / z, (focal.y * y) / z2, 0, 0, 0];
 
   const MV3x3 = new THREE.Matrix3().setFromMatrix4(modelViewMatrix);
   const V = MV3x3.elements;
@@ -68,7 +68,12 @@ export function debugSplat(
     console.log("T:", ...T);
     console.log("cov2d:", cov2d[0], cov2d[4], cov2d[1]);
     console.log("pixel1 raw:", pixel1[0], pixel1[1], pixel1[2], pixel1[3]);
-    console.log("pixel1 hex:", pixel1[0].toString(16), pixel1[1].toString(16), pixel1[2].toString(16));
+    console.log(
+      "pixel1 hex:",
+      pixel1[0].toString(16),
+      pixel1[1].toString(16),
+      pixel1[2].toString(16)
+    );
   }
   return { lambda1, lambda2, majorAxisPx, camPos, trace3d };
 }
@@ -78,15 +83,15 @@ export function debugCurrentView(
   splatData: SplatDataBuffers,
   mesh: THREE.Mesh,
   camera: THREE.Camera,
-  geometry: THREE.InstancedBufferGeometry,
+  geometry: THREE.InstancedBufferGeometry
 ): void {
   mesh.updateMatrixWorld(true);
   camera.updateMatrixWorld(true);
 
   const viewport = new THREE.Vector2(window.innerWidth, window.innerHeight);
   const focal = new THREE.Vector2(
-    camera.projectionMatrix.elements[0] * viewport.x / 2,
-    camera.projectionMatrix.elements[5] * viewport.y / 2,
+    (camera.projectionMatrix.elements[0] * viewport.x) / 2,
+    (camera.projectionMatrix.elements[5] * viewport.y) / 2
   );
   const splatIndexAttr = geometry.getAttribute("splatIndex") as THREE.InstancedBufferAttribute;
   if (!splatIndexAttr) return;
@@ -102,7 +107,7 @@ export function debugCurrentView(
       mesh.modelViewMatrix,
       camera.projectionMatrix,
       focal,
-      false,
+      false
     );
 
     if (result.lambda2 < 0 || isNaN(result.lambda1)) continue;
@@ -116,13 +121,25 @@ export function debugCurrentView(
         lambda2: result.lambda2.toFixed(2),
         trace3d: result.trace3d.toFixed(4),
       });
-      console.log("scale:",
-        splatData.scales[idx*3], splatData.scales[idx*3+1], splatData.scales[idx*3+2]);
-      console.log("rotation:",
-        splatData.rotations[idx*4], splatData.rotations[idx*4+1],
-        splatData.rotations[idx*4+2], splatData.rotations[idx*4+3]);
-      console.log("position:",
-        splatData.positions[idx*3], splatData.positions[idx*3+1], splatData.positions[idx*3+2]);
+      console.log(
+        "scale:",
+        splatData.scales[idx * 3],
+        splatData.scales[idx * 3 + 1],
+        splatData.scales[idx * 3 + 2]
+      );
+      console.log(
+        "rotation:",
+        splatData.rotations[idx * 4],
+        splatData.rotations[idx * 4 + 1],
+        splatData.rotations[idx * 4 + 2],
+        splatData.rotations[idx * 4 + 3]
+      );
+      console.log(
+        "position:",
+        splatData.positions[idx * 3],
+        splatData.positions[idx * 3 + 1],
+        splatData.positions[idx * 3 + 2]
+      );
       explosionCount++;
     }
   }
