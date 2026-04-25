@@ -1,61 +1,160 @@
-# Three.js Gaussian Splat Renderer
+# Three.js Splat Viewer
 
-`(WIP - This is a learning project)`
+Work-in-progress Gaussian Splat renderer built with Three.js, TypeScript, GLSL, and Web Workers.
 
-A personal attempt to learn **Gaussian Splatting** by building a custom renderer with Three.js.
+This repository now has two usage modes:
 
-Heavily inspired by and modeled after [antimatter15/splat](https://github.com/antimatter15/splat/) by antimatter and [Spark](https://github.com/sparkjsdev/spark/) by World Labs Technologies.
+1. Standalone page app (entry at `src/main.ts`)
+2. Embeddable viewer classes:
+	 - `SplatViewer` (headless core, no UI)
+	 - `SplatViewerUI` (optional overlay UI wrapper)
 
-## Example
+Inspired by:
 
-<table>
-<tr>
-<td width="50%">
-  
-**Current Implementation (20k splats rendered)**
-  
-<img width="100%" alt="nikeshoesplat" src="https://github.com/user-attachments/assets/8f4035c0-0966-4755-a1b6-4bb87828c02c" />
+- [antimatter15/splat](https://github.com/antimatter15/splat/)
+- [Spark](https://github.com/sparkjsdev/spark/)
 
+## Features
 
-</td>
-<td width="50%">
-  
-**Goal (antimatter15/splat)**
-  
-<img width="100%" alt="image" src="https://github.com/user-attachments/assets/6f5280ad-842b-454f-9ef4-2bc6ae406792" />
+- Custom splat pipeline with packed `DataTexture` storage
+- GLSL splat shading and ellipse projection
+- Worker-based depth sorting for transparent blending
+- Dynamic instance-count control by percentage
+- Camera controls:
+	- Orbit controls
+	- WASD translation
+	- right-drag panning (inverted screen direction)
+- Runtime reset and consistency recovery hooks
+- Embeddable class API for host applications
 
+## Quick Start
 
-</td>
-</tr>
-</table>
+### Requirements
 
+- Node.js 20+
 
-## Tech Stack
+### Install
 
-- **Three.js**
-- **TypeScript**
-- **GLSL**
-- **Vite**
-- **Web Workers**
+```bash
+npm install
+```
 
-## Structure
+### Run development server
 
-**`/src/classes/`**
-- **SplatLoader** - Loads and parses `.splat` binary files
-- **SplatPacker** - Packs splat data into GPU textures (computes covariance matrices)
-- **SplatGeometry** - Creates instanced quad geometry with DataTexture
-- **SplatMaterial** - Shader material setup with viewport/focal uniforms
-- **SplatRenderer** - Main class that orchestrates loading, rendering, and depth sorting
-- **SplatWorker** - Web Worker for asynchronous depth sorting
+```bash
+npm run dev
+```
 
-**`/src/shaders/`**
-- **splat.vert** - Vertex shader: unpacks data, projects 3D covariance to 2D, stretches quads
-- **splat.frag** - Fragment shader: evaluates Gaussian falloff and applies color/opacity
+### Production build
 
-## How It Works
+```bash
+npm run build
+```
 
-1. Load binary splat file (position, scale, rotation, color per splat)
-2. Pack data into texture with covariance matrices
-3. Vertex shader projects each 3D Gaussian to screen-space ellipse
-4. Fragment shader renders Gaussian falloff
-5. Web Worker sorts splats by depth for correct alpha blending
+### Preview production build
+
+```bash
+npm run preview
+```
+
+## Standalone Mode
+
+`src/main.ts` is a deployable standalone entry.
+
+It mounts `SplatViewerUI` into `#app` in `index.html`.
+
+## Embedding API
+
+### 1. Headless viewer (no UI)
+
+Use this when your app already has its own controls/DOM.
+
+```ts
+import { SplatViewer } from "./SplatViewer";
+
+const container = document.getElementById("viewer")!;
+
+const viewer = new SplatViewer(container, {
+	url: "https://media.reshot.ai/models/nike_next/model.splat",
+	background: 0x111111,
+	moveSpeed: 3,
+	enableWASD: true,
+	enableRightDragPan: true,
+});
+
+await viewer.waitUntilReady();
+viewer.setInstancePercent(100);
+
+// Later
+viewer.dispose();
+```
+
+`SplatViewer` methods:
+
+- `waitUntilReady(): Promise<void>`
+- `setInstancePercent(percent: number): number`
+- `reset(reason?: string): void`
+- `getStats(): { totalSplats, instanceCount, cameraPosition }`
+- `dispose(): void`
+
+### 2. Viewer with built-in overlay UI
+
+Use this when you want a quick ready-made panel and loading/fps overlays.
+
+```ts
+import { SplatViewerUI } from "./SplatViewerUI";
+
+const container = document.getElementById("viewer")!;
+
+const viewerUI = new SplatViewerUI(container, {
+	url: "https://media.reshot.ai/models/nike_next/model.splat",
+	initialPercent: 100,
+});
+
+// Later
+viewerUI.dispose();
+```
+
+## Controls
+
+- Orbit: mouse drag
+- Translate: `W`, `A`, `S`, `D`
+- Pan: right-click drag
+- Reset view: UI reset button
+
+## Project Structure
+
+### Core rendering
+
+- `src/classes/SplatLoader.ts`: parse/load `.splat`
+- `src/classes/SplatPacker.ts`: pack splat attributes for GPU texture usage
+- `src/classes/SplatGeometry.ts`: create instanced quad geometry + packed texture
+- `src/classes/SplatMaterial.ts`: shader material and uniforms
+- `src/classes/SplatRenderer.ts`: orchestration, async readiness, sort/update/reset APIs
+- `src/classes/SplatWorker.ts`: worker-side depth sort
+
+### Wrappers and app entry
+
+- `src/SplatViewer.ts`: headless embeddable viewer class
+- `src/SplatViewerUI.ts`: opt-in overlay UI wrapper around `SplatViewer`
+- `src/main.ts`: standalone page bootstrap
+
+### Shaders
+
+- `src/shaders/splat.vert`
+- `src/shaders/splat.frag`
+
+## Rendering Pipeline (High Level)
+
+1. Load binary splat buffer.
+2. Pack splat data into integer texture storage.
+3. Render instanced quads, one per splat.
+4. Project covariance to screen-space ellipse in vertex shader.
+5. Apply Gaussian falloff in fragment shader.
+6. Keep transparent blending stable using worker depth sorting.
+
+## Notes
+
+- This is still a learning project and API surface may change.
+- Remote model URLs are subject to CORS/network constraints.
+- Performance depends heavily on GPU/browser and splat count.
