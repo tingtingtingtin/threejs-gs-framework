@@ -80,7 +80,6 @@ export class SplatLoader {
       scales[i * 3 + 2] = f32[fOffset + 5];
 
       // Color (Bytes 24, 25, 26, 27) - stored in the same word as floats but read as bytes
-      // Note: This matches the "antisplat" layout
       colorsFloat[i * 3 + 0] = u8[bOffset + 24] / 255;
       colorsFloat[i * 3 + 1] = u8[bOffset + 25] / 255;
       colorsFloat[i * 3 + 2] = u8[bOffset + 26] / 255;
