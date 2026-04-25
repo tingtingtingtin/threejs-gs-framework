@@ -2,6 +2,8 @@
 
 Work-in-progress Gaussian Splat renderer built with Three.js, TypeScript, GLSL, and Web Workers.
 
+This package is experimental and APIs may change between releases.
+
 This repository now has two usage modes:
 
 1. Standalone page app (entry at `src/main.ts`)
@@ -64,6 +66,12 @@ npm run preview
 It mounts `SplatViewerUI` into `#app` in `index.html`.
 
 ## Embedding API
+
+Important packaging/runtime notes:
+
+- Experimental package: expect API and build changes while the renderer evolves.
+- Worker limitation: `SplatWorker` is instantiated via `new URL("./SplatWorker.ts", import.meta.url)`, so bundler behavior is tied to Vite-compatible worker URL handling.
+- Styles: `SplatViewer` is headless and has no UI styles. `SplatViewerUI` expects styles to be provided by the consumer. You can either include your own stylesheet or import the package sheet from `threejs-gs-framework/style.css`.
 
 ### 1. Headless viewer (no UI)
 

@@ -1,8 +1,27 @@
 {
   "name": "threejs-gs-framework",
-  "private": true,
-  "version": "0.0.0",
+  "private": false,
+  "version": "0.1.0",
   "type": "module",
+  "description": "Experimental Three.js Gaussian Splat viewer with embeddable headless and UI wrappers.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./src/style.css"
+  },
+  "files": [
+    "dist",
+    "src/style.css",
+    "README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -11,25 +30,26 @@
     "test:renderer": "tsx ./src/test/testRenderer.ts"
   },
   "devDependencies": {
+    "@types/three": "^0.182.0",
     "@types/node": "^25.0.2",
     "jsdom": "^27.3.0",
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vite-plugin-dts": "^4.5.4"
   },
   "dependencies": {
-    "@types/three": "^0.182.0",
-    "three": "^0.182.0",
     "ts-node": "^10.9.2"
   },
-  "description": "`(WIP - This is a learning project)`",
-  "main": "index.js",
+  "peerDependencies": {
+    "three": "^0.182.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tingtingtingtin/threejs-splat.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["gaussian-splatting", "three.js", "webgl", "3d", "splat"],
+  "author": "tingtingtingtin",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/tingtingtingtin/threejs-splat/issues"
