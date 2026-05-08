@@ -26,6 +26,13 @@ export interface SplatViewerOptions {
   enableRightDragPan?: boolean;
   /** Called periodically while the splat file is being downloaded and parsed. */
   onProgress?: (progress: SplatRendererProgress) => void;
+  /**
+   * Called when the browser loses the WebGL context (e.g. due to memory
+   * pressure). The render loop is paused automatically before this fires.
+   * GPU resources cannot be recovered without re-creating the viewer, so the
+   * recommended response is to show an error and call {@link SplatViewer.dispose}.
+   */
+  onContextLost?: () => void;
 }
 
 /**
@@ -67,6 +74,7 @@ export class SplatViewer {
   private readonly moveSpeed: number;
   private readonly enableWASD: boolean;
   private readonly enableRightDragPan: boolean;
+  private readonly onContextLost?: () => void;
 
   private animationId?: number;
   private consistencyCheckTimeoutId?: number;
@@ -85,6 +93,12 @@ export class SplatViewer {
 
   private readonly onControlsChange = () => {
     this.splatRenderer.update();
+  };
+
+  private readonly onWebGLContextLost = (e: Event) => {
+    e.preventDefault();
+    this.pause();
+    this.onContextLost?.();
   };
 
   private readonly onKeyDown = (e: KeyboardEvent) => {
@@ -181,12 +195,14 @@ export class SplatViewer {
       enableWASD = true,
       enableRightDragPan = true,
       onProgress,
+      onContextLost,
     } = options;
 
     this.container = container;
     this.moveSpeed = moveSpeed;
     this.enableWASD = enableWASD;
     this.enableRightDragPan = enableRightDragPan;
+    this.onContextLost = onContextLost;
 
     this.scene = new THREE.Scene();
     if (background !== undefined) {
@@ -228,6 +244,7 @@ export class SplatViewer {
     this.renderer.domElement.addEventListener("mousedown", this.onMouseDown);
     window.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("mouseup", this.onMouseUp);
+    this.renderer.domElement.addEventListener("webglcontextlost", this.onWebGLContextLost);
 
     this.animate();
   }
@@ -340,6 +357,7 @@ export class SplatViewer {
     this.renderer.domElement.removeEventListener("mousedown", this.onMouseDown);
     window.removeEventListener("mousemove", this.onMouseMove);
     window.removeEventListener("mouseup", this.onMouseUp);
+    this.renderer.domElement.removeEventListener("webglcontextlost", this.onWebGLContextLost);
 
     this.renderer.dispose();
     this.renderer.domElement.remove();

@@ -100,6 +100,11 @@ export class SplatViewerUI {
         this.onLoadProgress(progress);
         this.externalOnProgress?.(progress);
       },
+      onContextLost: () => {
+        this.loadingOverlay.textContent = "WebGL context lost. Reload the page to continue.";
+        this.loadingOverlay.classList.add("is-error");
+        this.loadingOverlay.hidden = false;
+      },
     });
 
     this.loadingOverlay = document.createElement("div");
