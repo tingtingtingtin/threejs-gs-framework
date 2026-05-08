@@ -3,20 +3,61 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { SplatRenderer } from "./classes/SplatRenderer";
 import type { SplatRendererProgress } from "./classes/SplatRenderer";
 
+/** Configuration options for {@link SplatViewer}. */
 export interface SplatViewerOptions {
+  /** URL of the `.splat` file to load. */
   url: string;
+  /** Optional background color for the scene. Accepts any THREE.js color representation. */
   background?: THREE.ColorRepresentation;
+  /**
+   * WASD fly-through speed in world-units per second.
+   * @defaultValue 3
+   */
   moveSpeed?: number;
+  /**
+   * Enable WASD keyboard navigation.
+   * @defaultValue true
+   */
   enableWASD?: boolean;
+  /**
+   * Enable right-mouse-button drag to pan the camera.
+   * @defaultValue true
+   */
   enableRightDragPan?: boolean;
+  /** Called periodically while the splat file is being downloaded and parsed. */
   onProgress?: (progress: SplatRendererProgress) => void;
 }
 
+/**
+ * High-level viewer for 3D Gaussian Splat scenes.
+ *
+ * `SplatViewer` creates and owns a Three.js `WebGLRenderer`, `Scene`,
+ * `PerspectiveCamera`, and `OrbitControls`, then streams and renders a `.splat`
+ * file into the given container element.
+ *
+ * @example
+ * ```ts
+ * const viewer = new SplatViewer(document.getElementById("canvas-container")!, {
+ *   url: "/scene.splat",
+ *   background: 0x111111,
+ *   enableWASD: true,
+ * });
+ * await viewer.waitUntilReady();
+ * ```
+ *
+ * Call {@link dispose} when the viewer is no longer needed to release all GPU
+ * resources and remove event listeners.
+ */
 export class SplatViewer {
+  /** The underlying Three.js WebGL renderer. The canvas element is appended to `container`. */
   public readonly renderer: THREE.WebGLRenderer;
+  /** The Three.js scene that contains the splat mesh and camera. */
   public readonly scene: THREE.Scene;
+  /** Perspective camera used for rendering. FOV is 75°; near/far are 0.1/1000. */
   public readonly camera: THREE.PerspectiveCamera;
+  /** OrbitControls instance. Damping is enabled; panning via OrbitControls is disabled in favour of right-drag pan. */
   public readonly controls: OrbitControls;
+  /** Low-level splat renderer responsible for loading, sorting, and drawing Gaussian splats. */
   public readonly splatRenderer: SplatRenderer;
 
   private readonly container: HTMLElement;
@@ -123,6 +164,15 @@ export class SplatViewer {
     }
   };
 
+  /**
+   * Creates a new `SplatViewer`, appends its canvas to `container`, and begins
+   * loading the splat file specified by `options.url`.
+   *
+   * @param container - DOM element that will host the renderer canvas. The
+   *   canvas is sized to match the container and updates automatically via
+   *   `ResizeObserver`.
+   * @param options - Viewer configuration. See {@link SplatViewerOptions}.
+   */
   constructor(container: HTMLElement, options: SplatViewerOptions) {
     const {
       url,
@@ -182,10 +232,23 @@ export class SplatViewer {
     this.animate();
   }
 
+  /**
+   * Returns a promise that resolves once the splat file has been fully loaded
+   * and the first frame has been rendered.
+   */
   public waitUntilReady(): Promise<void> {
     return this.splatRenderer.waitUntilReady();
   }
 
+  /**
+   * Limits rendering to a percentage of the total splat count, which can
+   * improve performance on lower-end hardware.
+   *
+   * @param percent - Desired percentage of splats to render (1–100). Values
+   *   outside this range are clamped.
+   * @returns The actual instance count that was set, or `0` if the splat data
+   *   is not yet loaded.
+   */
   public setInstancePercent(percent: number): number {
     const totalSplats = this.splatRenderer.getTotalSplats();
     const safePercent = Math.min(100, Math.max(1, Math.round(percent)));
@@ -199,11 +262,26 @@ export class SplatViewer {
     return instanceCount;
   }
 
+  /**
+   * Resets the camera to its initial position and re-initialises the splat
+   * renderer state.
+   *
+   * @param reason - Descriptive label logged internally when a consistency
+   *   reset is triggered (useful for debugging).
+   */
   public reset(reason = "manual"): void {
     this.resetCameraPose();
     this.splatRenderer.reset(reason);
   }
 
+  /**
+   * Returns a snapshot of current viewer statistics.
+   *
+   * @returns An object containing:
+   * - `totalSplats` — total number of Gaussians in the loaded scene.
+   * - `instanceCount` — number of Gaussians currently being rendered.
+   * - `cameraPosition` — a clone of the current camera world position.
+   */
   public getStats() {
     return {
       totalSplats: this.splatRenderer.getTotalSplats(),
@@ -212,6 +290,35 @@ export class SplatViewer {
     };
   }
 
+  /**
+   * Pauses the render loop. No frames are rendered until {@link resume} is
+   * called. Safe to call when the viewer is already paused.
+   */
+  public pause(): void {
+    if (this.animationId !== undefined) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = undefined;
+    }
+  }
+
+  /**
+   * Resumes the render loop after a {@link pause}. Safe to call when the
+   * viewer is already running.
+   */
+  public resume(): void {
+    if (this.animationId === undefined) {
+      this.lastMoveTime = performance.now();
+      this.animate();
+    }
+  }
+
+  /**
+   * Tears down the viewer completely: cancels the render loop, disconnects
+   * observers, removes all event listeners, and releases WebGL resources.
+   *
+   * The canvas element is also removed from the DOM. After calling `dispose`,
+   * the `SplatViewer` instance must not be used.
+   */
   public dispose(): void {
     if (this.animationId !== undefined) {
       cancelAnimationFrame(this.animationId);
@@ -238,6 +345,7 @@ export class SplatViewer {
     this.renderer.domElement.remove();
   }
 
+  /** Falls back to `window.innerWidth/Height` when the container has no layout size yet. */
   private getContainerSize(): { width: number; height: number } {
     const width = Math.max(1, this.container.clientWidth || window.innerWidth);
     const height = Math.max(1, this.container.clientHeight || window.innerHeight);
@@ -252,6 +360,11 @@ export class SplatViewer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   }
 
+  /**
+   * Debounces a GPU-state consistency check so that rapid triggers (e.g. many
+   * resize events in quick succession) collapse into a single check 180 ms
+   * after the last event.
+   */
   private scheduleConsistencyCheck(reason: string, includeCameraReset: boolean): void {
     if (this.consistencyCheckTimeoutId !== undefined) {
       window.clearTimeout(this.consistencyCheckTimeoutId);
@@ -274,6 +387,10 @@ export class SplatViewer {
     this.controls.update();
   }
 
+  /**
+   * Translates the camera and orbit target together by a screen-space pixel
+   * delta, preserving the focal distance so panning feels scale-appropriate.
+   */
   private panByScreenDelta(deltaX: number, deltaY: number): void {
     const { height } = this.getContainerSize();
     const toTarget = this.camera.position.distanceTo(this.controls.target);

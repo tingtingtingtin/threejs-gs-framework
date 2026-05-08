@@ -1,16 +1,49 @@
 import { SplatViewer, type SplatViewerOptions } from "./SplatViewer";
 import type { SplatRendererProgress } from "./classes/SplatRenderer";
 
+/** Configuration options for {@link SplatViewerUI}. Extends {@link SplatViewerOptions}. */
 export interface SplatViewerUIOptions extends SplatViewerOptions {
+  /**
+   * Percentage of splats to render on first load (1–100). Values outside this
+   * range are clamped. Useful for improving startup performance on large scenes.
+   * @defaultValue 100
+   */
   initialPercent?: number;
 }
 
+/**
+ * Batteries-included wrapper around {@link SplatViewer} that adds a built-in
+ * loading overlay, FPS counter, instance-density slider, live stats panel, and
+ * a reset button — all injected as absolutely-positioned DOM elements inside
+ * the given container.
+ *
+ * CSS class names follow the `splat-ui-*` prefix convention so they can be
+ * styled without affecting the rest of the page. The overlay elements are
+ * appended to `container`, which is automatically set to `position: relative`
+ * if it has `position: static`.
+ *
+ * If WebGL is unavailable the constructor renders an error message and skips
+ * all further initialisation; no `SplatViewer` instance is created.
+ *
+ * @example
+ * ```ts
+ * const ui = new SplatViewerUI(document.getElementById("viewer")!, {
+ *   url: "/scene.splat",
+ *   initialPercent: 75,
+ * });
+ * // Call dispose() when done to clean up all DOM nodes and GPU resources.
+ * ```
+ */
 export class SplatViewerUI {
+  /** The underlying {@link SplatViewer}. `null` when WebGL is unavailable. */
   public readonly viewer: SplatViewer;
 
   private readonly container: HTMLElement;
+  /** Overlay shown during load and on error. Hidden once the scene is ready. */
   private readonly loadingOverlay: HTMLDivElement;
+  /** Top-corner overlay displaying a rolling FPS average sampled every 250 ms. */
   private readonly fpsOverlay: HTMLDivElement;
+  /** Control panel housing the density slider, stats rows, and reset button. */
   private readonly panel: HTMLDivElement;
   private readonly percentValue: HTMLSpanElement;
   private readonly percentSlider: HTMLInputElement;
@@ -21,16 +54,25 @@ export class SplatViewerUI {
   private frameCount = 0;
   private lastFpsTime = performance.now();
   private statsAnimationId?: number;
+  /** Monotonically-increasing load progress (0–1) used to avoid backwards jumps in the overlay text. */
   private latestProgress = 0;
   private readonly externalOnProgress?: SplatViewerOptions["onProgress"];
 
+  /**
+   * Creates a new `SplatViewerUI`, injects all overlay elements into
+   * `container`, and begins streaming the splat file.
+   *
+   * @param container - Host element. Must be in the DOM before this call.
+   * @param options - Viewer and UI configuration. See {@link SplatViewerUIOptions}.
+   */
   constructor(container: HTMLElement, options: SplatViewerUIOptions) {
     this.container = container;
     if (getComputedStyle(this.container).position === "static") {
       this.container.style.position = "relative";
     }
 
-    // check WebGL support
+    // Detect WebGL support before creating the renderer to show a friendly
+    // error rather than a cryptic Three.js failure.
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
     if (!gl) {
@@ -38,7 +80,7 @@ export class SplatViewerUI {
       this.loadingOverlay.className = "splat-ui-loading is-error";
       this.loadingOverlay.textContent = "WebGL is not available. Enable hardware acceleration in your browser settings.";
       container.appendChild(this.loadingOverlay);
-      // Initialize remaining fields to satisfy TypeScript
+      // Satisfy TypeScript's definite-assignment checks for readonly fields.
       this.viewer = null!;
       this.fpsOverlay = null!;
       this.panel = null!;
@@ -131,6 +173,13 @@ export class SplatViewerUI {
     });
   }
 
+  /**
+   * Tears down all UI elements and the underlying {@link SplatViewer}.
+   *
+   * Cancels the stats animation loop, removes event listeners, detaches overlay
+   * DOM nodes, and forwards to `viewer.dispose()`. After calling `dispose`,
+   * this instance must not be used.
+   */
   public dispose(): void {
     if (this.statsAnimationId !== undefined) {
       cancelAnimationFrame(this.statsAnimationId);
@@ -160,6 +209,7 @@ export class SplatViewerUI {
     this.updateStats();
   };
 
+  /** Waits for the scene to finish loading, then reveals the panel and starts the stats loop. */
   private async initialize(initialPercent: number): Promise<void> {
     await this.viewer.waitUntilReady();
     this.viewer.setInstancePercent(initialPercent);
@@ -172,6 +222,7 @@ export class SplatViewerUI {
     this.updateStatsLoop();
   }
 
+  /** Updates the loading overlay text with stage-specific progress detail (fetch bytes or pack splat count). */
   private onLoadProgress(progress: SplatRendererProgress): void {
     this.latestProgress = Math.max(this.latestProgress, progress.progress);
     const percentText = `${Math.round(this.latestProgress * 100)}%`;
@@ -193,6 +244,11 @@ export class SplatViewerUI {
     this.loadingOverlay.textContent = "Loading complete";
   }
 
+  /**
+   * Converts a raw fetch/parse error into a user-friendly message.
+   * Recognises common patterns (404, CORS, network failures) and falls back to
+   * a generic string for anything else.
+   */
   private describeLoadError(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -208,6 +264,7 @@ export class SplatViewerUI {
     return "Model load failed.";
   }
 
+  /** Formats a byte count as a human-readable string (e.g. `"3.2 MB"`). */
   private formatBytes(bytes: number): string {
     if (!Number.isFinite(bytes) || bytes <= 0) {
       return "0 B";
@@ -226,6 +283,7 @@ export class SplatViewerUI {
     return `${value.toFixed(precision)} ${units[unitIndex]}`;
   }
 
+  /** `rAF`-driven loop that refreshes the FPS counter every 250 ms and keeps the stats panel current. */
   private updateStatsLoop(): void {
     this.statsAnimationId = requestAnimationFrame(() => this.updateStatsLoop());
 
@@ -241,6 +299,7 @@ export class SplatViewerUI {
     this.updateStats();
   }
 
+  /** Pulls the latest stats from the viewer and writes them into the panel DOM nodes. */
   private updateStats(): void {
     const stats = this.viewer.getStats();
     if (stats.totalSplats > 0) {
